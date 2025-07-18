@@ -9,7 +9,7 @@ bot.use(session());
 // Handle start command
 bot.start((ctx) => {
   ctx.session = { state: 'ask_name' };
-  ctx.reply('Привет! Хочешь оставить послание?', {
+  ctx.reply('Привет! Здесь ты можешь оставить послание для Влада А4. Он увидит его на бегущей строке в своём Доме.', {
     reply_markup: {
       inline_keyboard: [
         [{ text: 'Оставить имя', callback_data: 'leave_name' }],
@@ -32,7 +32,7 @@ bot.on('callback_query', (ctx) => {
   } else if (data === 'anonymous') {
     ctx.session.state = 'wait_message';
     ctx.session.displayName = null;
-    ctx.editMessageText('Введи свое послание:');
+    ctx.editMessageText('Окей! Тогда ты не указан. Напиши послание — только помни, что оно должно быть приемлемым и дружелюбным. Сам понимаешь!');
     ctx.answerCbQuery();
     return;
   }
@@ -80,8 +80,14 @@ bot.on('callback_query', (ctx) => {
           ctx.answerCbQuery('Ошибка обновления статуса.');
           return;
         }
-        const userNotify = status === 'approved' ? 'Ваше сообщение одобрено!' : 'Ваше сообщение отклонено.';
-        bot.telegram.sendMessage(row.user_id, userNotify).catch((notifyErr) => {
+        // Format user display from DB
+        const userDisplay = row.display_name ? row.display_name : 'Анонимно';
+        const userNotify = status === 'approved' ? 'Все четко! Смотри на бегущую строку!' : 'К сожалению, что-то в твоём послании не так. Попробуй написать что-то другое!';
+        bot.telegram.sendMessage(row.user_id, userNotify, status === 'rejected' ? {
+          reply_markup: {
+            inline_keyboard: [[{ text: 'Попробовать ещё раз', callback_data: 'retry' }]]
+          }
+        } : {}).catch((notifyErr) => {
           console.error(`Ошибка уведомления пользователя ${row.user_id}: ${notifyErr.message}`);
           if (notifyErr.response && notifyErr.response.error_code === 403) {
             console.log(`Пользователь ${row.user_id} заблокировал бота.`);
@@ -123,13 +129,13 @@ bot.on('text', (ctx) => {
   if (state === 'wait_name') {
     ctx.session.displayName = ctx.message.text.trim();
     ctx.session.state = 'wait_message';
-    ctx.reply('Теперь введи свое послание:');
+    ctx.reply('Супер! Теперь Влад увидит, что от тебя есть послание. Напиши еще что-то стоящее! Только помни, что оно должно быть приемлемым и дружелюбным. Сам понимаешь!');
   } else if (state === 'wait_message') {
     const userId = ctx.from.id.toString();
     const firstName = ctx.from.first_name || '';
     const lastName = ctx.from.last_name || '';
     const username = ctx.from.username || '';
-    const displayName = ctx.session.displayName || null;
+    const displayName = ctx.session.displayName;
     const text = ctx.message.text;
     console.log(`Получено сообщение от пользователя ${userId}: ${text}`);
 
@@ -145,8 +151,8 @@ bot.on('text', (ctx) => {
       const isProfane = regex.test(text);
       const targetChat = isProfane ? config.uncensoredChatId : config.modChatId;
 
-      // Format user link
-      const userDisplay = displayName ? displayName : (username ? `@${username}` : `[${firstName} ${lastName}](tg://user?id=${userId})`) || 'Аноним';
+      // Format user display
+      const userDisplay = displayName ? displayName : 'Анонимно';
 
       // Send to appropriate mod chat with inline buttons
       bot.telegram.sendMessage(targetChat, `**Сообщение от ${userDisplay}:**\n**${text}**\nID: ${msgId}`, {
@@ -165,11 +171,28 @@ bot.on('text', (ctx) => {
       });
 
       // Confirm to user
-      ctx.reply('Сообщение отправлено на модерацию.');
-      ctx.session.state = null; // Reset state
+      ctx.reply('Отлично! Мы отправили послание на модерацию. Подожди немного — если все ОК, примерно через 10 минут оно появится в Доме Влада А4.');
+      ctx.session.state = 'wait_moderation';
     });
   } else {
     ctx.reply('Пожалуйста, начните с /start.');
+  }
+});
+
+// Add retry handling in callback_query
+bot.on('callback_query', (ctx) => {
+  const data = ctx.callbackQuery.data;
+  if (data === 'retry') {
+    ctx.session.state = 'ask_name';
+    ctx.editMessageText('Как тебя зовут?', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Оставить имя', callback_data: 'leave_name' }],
+          [{ text: 'Анонимно', callback_data: 'anonymous' }]
+        ]
+      }
+    });
+    ctx.answerCbQuery();
   }
 });
 
