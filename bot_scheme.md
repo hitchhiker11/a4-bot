@@ -14,15 +14,29 @@ Based on the screenshot (a mindmap with yellow notes connected by arrows) and us
 
 ### 1. Root: Bot Initialization
    - **Description**: Bot starts and listens for incoming messages.
-   - **Key Texts**: /start → 'Привет! Здесь ты можешь оставить послание для Влада А4. Он увидит его на бегущей строке в своём Доме.' with buttons for name choice.
+   - **Connections**:
+     - → User Message Receipt (when user sends a message)
+     - → Admin Commands (for moderators/admins)
 
 ### 2. User Interaction Branch
-   - Name Ask: 'Как тебя зовут?' with 'Оставить имя' or 'Анонимно'.
-   - If name: 'Супер! Теперь Влад увидит, что от тебя есть послание. Напиши еще что-то стоящее! Только помни, что оно должно быть приемлемым и дружелюбным. Сам понимаешь!'
-   - If anonymous: 'Окей! Тогда ты не указан. Напиши послание — только помни, что оно должно быть приемлемым и дружелюбным. Сам понимаешь!'
-   - After message: 'Отлично! Мы отправили послание на модерацию. Подожди немного — если все ОК, примерно через 10 минут оно появится в Доме Влада А4.'
-   - Approved: 'Все четко! Смотри на бегущую строку!'
-   - Rejected: 'К сожалению, что-то в твоём послании не так. Попробуй написать что-то другое!' with 'Попробовать ещё раз' button.
+   - **Description**: Handles messages from regular users.
+   - **Key Texts/Messages**:
+     - Start: 'Привет! Хочешь оставить послание?'
+     - Name Question: 'Как тебя зовут?' with buttons 'Оставить имя' and 'Анонимно'
+     - If leave name: 'Введи свое имя:'
+     - Then: 'Введи свое послание:'
+     - Confirmation: 'Сообщение отправлено на модерацию'
+     - User sends: Short message
+   - **Sub-nodes**:
+     - 2.1 Name Branching
+       - Flow: Ask name, store custom name or set anonymous.
+     - 2.2 Receive User Message
+       - Actions: Store in DB with display_name, forward to mod chat.
+     - 2.3 User Feedback Loop
+       - **Flow**: After moderation, notify user.
+       - **Key Texts**:
+         - Approved: "Your message has been approved and will be displayed!"
+         - Rejected: "Your message was rejected due to censorship."
 
 ### 3. Moderation Branch
    - **Description**: Moderator reviews and decides on user messages.

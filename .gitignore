@@ -1,7 +1,2 @@
-
-node_modules
+node_modules/
 .env
-*.log
-data/bot.db
-Dockerfile*
-docker-compose* 
